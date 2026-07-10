@@ -1,0 +1,82 @@
+{% extends 'brain_app/base.html' %}
+
+{% block title %}OKF Brain - Audit Conformance{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-4xl mx-auto">
+    <!-- Header -->
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight bg-gradient-to-r from-accent to-indigo-400 bg-clip-text text-transparent">Audit & Conformance</h1>
+        <p class="text-slate-400 mt-1">Review validation checks for OKF v0.1 schema rules and broken cross-links.</p>
+    </div>
+
+    <!-- Status Banner Card -->
+    <div class="glass-card p-6 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 {% if is_valid %}border-emerald-500/20 bg-emerald-500/5{% else %}border-rose-500/20 bg-rose-500/5{% endif %}">
+        <div class="flex items-center gap-4">
+            {% if is_valid %}
+            <div class="p-3 bg-emerald-500/20 text-emerald-400 rounded-full">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-emerald-400">Bundle Conformance: SUCCESS</h3>
+                <p class="text-xs text-emerald-300/80 mt-0.5">All checked markdown files adhere strictly to OKF frontmatter and layout structures.</p>
+            </div>
+            {% else %}
+            <div class="p-3 bg-rose-500/20 text-rose-400 rounded-full">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-rose-400">Bundle Conformance: FAILED</h3>
+                <p class="text-xs text-rose-300/80 mt-0.5">We detected structural errors that violate OKF schema criteria. Resolve them to pass audit checks.</p>
+            </div>
+            {% endif %}
+        </div>
+        <div class="text-sm font-semibold text-slate-300 bg-slate-800 px-4 py-2 rounded-lg border border-panelBorder">
+            Checked Files: <strong class="text-white">{{ checked_files_count }}</strong>
+        </div>
+    </div>
+
+    <!-- Details Grid -->
+    <div class="grid grid-cols-1 gap-6">
+        <!-- Errors -->
+        <div class="glass-card p-6 rounded-xl">
+            <h3 class="text-base font-bold text-slate-200 mb-4 flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-rose-500"></span>
+                Validation Errors ({{ errors|length }})
+            </h3>
+            
+            {% if errors %}
+            <ul class="space-y-3">
+                {% for error in errors %}
+                <li class="p-3 bg-rose-500/5 border border-rose-500/20 text-rose-300 rounded text-xs font-mono">
+                    {{ error }}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-xs text-slate-400 italic">No structural errors found! Your bundle layout is conformant.</p>
+            {% endif %}
+        </div>
+
+        <!-- Warnings -->
+        <div class="glass-card p-6 rounded-xl">
+            <h3 class="text-base font-bold text-slate-200 mb-4 flex items-center gap-2">
+                <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                Validation Warnings ({{ warnings|length }})
+            </h3>
+            
+            {% if warnings %}
+            <ul class="space-y-3">
+                {% for warning in warnings %}
+                <li class="p-3 bg-amber-500/5 border border-amber-500/20 text-amber-300 rounded text-xs font-mono">
+                    {{ warning }}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-xs text-slate-400 italic">No warnings found! All internal links are resolved.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,182 @@
+{% extends 'brain_app/base.html' %}
+
+{% block title %}OKF Brain - {{ frontmatter.title }}{% endblock %}
+
+{% block extra_head %}
+<!-- Marked.js CDN to render Markdown body dynamically -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Back Button & Actions -->
+    <div class="flex justify-between items-center">
+        <a href="{% url 'brain_app:concepts_list' %}" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-slate-300 hover:text-white bg-slate-800/40 hover:bg-slate-800 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+            Back to List
+        </a>
+        <div class="text-xs text-slate-500 font-mono">
+            File: {{ filename }}
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <!-- Main Markdown Content (Span 3) -->
+        <div class="lg:col-span-3 space-y-6">
+            <!-- Header Card -->
+            <div class="glass-card p-8 rounded-xl space-y-4">
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center px-3 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-accent/10 text-accent">
+                        {{ frontmatter.type }}
+                    </span>
+                    <span class="text-xs text-slate-400">
+                        Created: {{ frontmatter.timestamp }}
+                    </span>
+                </div>
+                <h1 class="text-3xl font-extrabold text-white">{{ frontmatter.title }}</h1>
+                <p class="text-slate-300 font-medium text-base border-l-2 border-accent pl-4 italic">
+                    {{ frontmatter.description }}
+                </p>
+                <div class="flex flex-wrap gap-2 pt-2">
+                    {% for tag in frontmatter.tags %}
+                    <span class="bg-slate-800 text-slate-300 text-xs px-2.5 py-1 rounded border border-panelBorder">
+                        #{{ tag }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Body Card -->
+            <div class="glass-card p-8 rounded-xl">
+                <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4 border-b border-panelBorder pb-2">Body Content</h3>
+                <!-- Render Container -->
+                <div id="markdown-container" class="prose prose-invert max-w-none text-slate-200 leading-relaxed space-y-4">
+                    <!-- Javascript injection -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Connection Graph Details (Span 1) -->
+        <div class="space-y-6">
+            <!-- References -->
+            <div class="glass-card p-6 rounded-xl space-y-4">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                    Outward References
+                </h3>
+                {% if outward_links %}
+                <ul class="space-y-2">
+                    {% for link in outward_links %}
+                    <li>
+                        <a href="{% url 'brain_app:concept_detail' link.path|cut:'/' %}" class="block text-xs font-semibold text-accent hover:text-accentHover bg-slate-800/40 p-2.5 rounded hover:bg-slate-800 border border-panelBorder transition">
+                            {{ link.title }}
+                            <span class="block text-[9px] text-slate-500 font-mono mt-0.5 truncate">{{ link.path }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-xs text-slate-500 italic">No outward references mapped.</p>
+                {% endif %}
+            </div>
+
+            <!-- Backlinks -->
+            <div class="glass-card p-6 rounded-xl space-y-4">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"></path></svg>
+                    Backlinks (Inward)
+                </h3>
+                {% if backlinks %}
+                <ul class="space-y-2">
+                    {% for link in backlinks %}
+                    <li>
+                        <a href="{% url 'brain_app:concept_detail' link.path|cut:'/' %}" class="block text-xs font-semibold text-indigo-300 hover:text-indigo-400 bg-slate-800/40 p-2.5 rounded hover:bg-slate-800 border border-panelBorder transition">
+                            {{ link.title }}
+                            <span class="block text-[9px] text-slate-500 font-mono mt-0.5 truncate">{{ link.path }}</span>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-xs text-slate-500 italic">No backlinks refer to this concept.</p>
+                {% endif %}
+            </div>
+
+            <!-- Concept Actions (Rename & Delete) -->
+            <div class="glass-card p-6 rounded-xl space-y-4">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    Concept Actions
+                </h3>
+                
+                <button onclick="toggleRenameForm()" class="w-full py-2 rounded text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-panelBorder transition">
+                    Rename / Move Concept
+                </button>
+
+                <form id="rename-form" action="{% url 'brain_app:rename_concept' filename %}" method="post" class="space-y-3 hidden bg-slate-950/40 p-3 rounded-lg border border-panelBorder">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-400">New Title</label>
+                        <input type="text" name="title" value="{{ frontmatter.title }}" class="w-full bg-slate-900 border border-panelBorder rounded p-1.5 text-xs text-white focus:outline-none focus:border-accent">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-400">New Subfolder</label>
+                        <input type="text" name="subfolder" value="{{ subfolder }}" class="w-full bg-slate-900 border border-panelBorder rounded p-1.5 text-xs text-white focus:outline-none focus:border-accent font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-slate-400">New Filename</label>
+                        <input type="text" name="filename" value="{{ filename|cut:subfolder|cut:'/' }}" class="w-full bg-slate-900 border border-panelBorder rounded p-1.5 text-xs text-white focus:outline-none focus:border-accent font-mono">
+                    </div>
+                    <button type="submit" class="w-full py-1.5 rounded text-xs font-semibold bg-accent text-slate-900 hover:bg-accentHover transition">
+                        Confirm Rename
+                    </button>
+                </form>
+
+                <form action="{% url 'brain_app:delete_concept' filename %}" method="post" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este concepto? Esto eliminará el archivo y limpiará las referencias en otros documentos.');">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full py-2 rounded text-xs font-semibold bg-rose-600/20 hover:bg-rose-600 border border-rose-600/40 text-rose-300 hover:text-white transition">
+                        Delete Concept
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleRenameForm() {
+        const form = document.getElementById('rename-form');
+        form.classList.toggle('hidden');
+    }
+</script>
+
+<script>
+    // Injected markdown body
+    const markdownBody = {{ body|json_script:"raw-markdown-data" }};
+    const rawText = JSON.parse(document.getElementById('raw-markdown-data').textContent);
+    
+    // Parse using marked.js
+    const container = document.getElementById('markdown-container');
+    if (rawText.trim()) {
+        // Customize marked parser link rendering to route through django urls!
+        const renderer = new marked.Renderer();
+        renderer.link = function(href, title, text) {
+            // Check if it's a local OKF bundle link (starts with / or has .md)
+            if (href.startsWith('/') && href.endsWith('.md')) {
+                // Remove leading slash for django path resolution
+                const cleanHref = href.slice(1);
+                // Construct django route relative path
+                const resolvedUrl = `/concepts/${cleanHref}/`;
+                return `<a href="${resolvedUrl}" class="text-accent hover:underline font-semibold" title="${title || ''}">${text}</a>`;
+            }
+            // Fallback for regular links
+            return `<a href="${href}" target="_blank" rel="noopener" class="text-accent hover:underline" title="${title || ''}">${text}</a>`;
+        };
+
+        container.innerHTML = marked.parse(rawText, { renderer: renderer });
+    } else {
+        container.innerHTML = '<em class="text-slate-500">Empty concept body.</em>';
+    }
+</script>
+{% endblock %}

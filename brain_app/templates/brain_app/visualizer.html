@@ -1,0 +1,301 @@
+{% extends 'brain_app/base.html' %}
+
+{% block title %}OKF Brain - Network Graph{% endblock %}
+
+{% block extra_head %}
+<!-- D3.js v7 CDN -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<!-- Marked.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+    /* Node and link styling */
+    .node {
+        cursor: pointer;
+        stroke-width: 2px;
+        transition: stroke-width 0.15s, filter 0.15s;
+    }
+    .node:hover {
+        stroke-width: 3px;
+        filter: drop-shadow(0 0 8px #38bdf8);
+    }
+    .link {
+        stroke-opacity: 0.35;
+        stroke-width: 1.5px;
+        fill: none;
+        transition: stroke-opacity 0.15s, stroke-width 0.15s;
+    }
+    /* Side-drawer details slide-in */
+    #detail-panel {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="h-[calc(100vh-10rem)] flex flex-col gap-4 relative">
+    <!-- Header Controls -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/30 p-4 border border-panelBorder rounded-xl backdrop-blur-md">
+        <div>
+            <h1 class="text-xl font-bold bg-gradient-to-r from-accent to-indigo-400 bg-clip-text text-transparent">Knowledge Graph</h1>
+            <p class="text-xs text-slate-400">Interactive visualizer of your OKF bundle semantic network.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <input type="text" id="search-input" class="bg-slate-950/60 border border-panelBorder rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent placeholder-slate-500 w-full sm:w-48" placeholder="Search concept or tag...">
+            <button id="reset-view" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-accent text-slate-900 hover:bg-accentHover transition duration-200">
+                Reset Zoom
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Workspace Container -->
+    <div class="flex-grow rounded-xl border border-panelBorder bg-slate-950/40 relative overflow-hidden flex">
+        <!-- SVG Canvas -->
+        <div id="canvas-container" class="flex-grow h-full w-full"></div>
+        
+        <!-- Legend Overlay -->
+        <div class="absolute bottom-4 left-4 p-4 glass-card rounded-lg pointer-events-none space-y-2 border border-panelBorder">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Node Types Legend</div>
+            <div id="legend-list" class="space-y-1.5 text-xs text-slate-300">
+                <!-- Javascript dynamic list -->
+            </div>
+        </div>
+
+        <!-- Slide-out Detail Drawer (Right side inside container) -->
+        <div id="detail-panel" class="absolute top-0 right-0 h-full w-96 glass-card border-l border-panelBorder translate-x-96 z-10 flex flex-col p-6 shadow-2xl">
+            <button id="detail-close" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+            
+            <div class="border-b border-panelBorder pb-4 mb-4">
+                <span id="detail-type" class="inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-accent/10 text-accent mb-2">Concept</span>
+                <h3 id="detail-title" class="text-lg font-bold text-white leading-tight">Quantum Physics</h3>
+                <span id="detail-path" class="block text-[10px] text-slate-500 font-mono mt-1">/physics/quantum.md</span>
+            </div>
+
+            <div id="detail-scroll" class="flex-grow overflow-y-auto space-y-4 pr-1">
+                <p id="detail-desc" class="text-xs text-slate-300 italic border-l-2 border-accent pl-3">No description</p>
+                <div id="detail-tags" class="flex flex-wrap gap-1.5"></div>
+                <div id="detail-body-rendered" class="text-xs text-slate-300 leading-relaxed prose prose-invert max-w-none pt-2 border-t border-panelBorder/40"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Graph dataset passed from View context
+    const graphData = {{ graph_data_json|safe }};
+    
+    // Premium Color Palette
+    const colors = {
+        "concept": "#38bdf8",     // Sky Blue
+        "physics": "#f43f5e",     // Rose
+        "methodology": "#10b981", // Emerald
+        "formula": "#f59e0b",     // Amber
+        "schema": "#8b5cf6",      // Purple
+        "index": "#ec4899",       // Pink
+        "default": "#94a3b8"      // Slate
+    };
+    
+    const typeColorScale = d3.scaleOrdinal(d3.schemeCategory10);
+    function getNodeColor(type) {
+        return colors[type.toLowerCase()] || typeColorScale(type);
+    }
+    
+    // Populate Legend
+    const uniqueTypes = [...new Set(graphData.nodes.map(n => n.type))];
+    const legendList = d3.select("#legend-list");
+    uniqueTypes.forEach(type => {
+        const item = legendList.append("div").attr("class", "flex items-center gap-2");
+        item.append("span")
+            .style("display", "inline-block")
+            .style("width", "8px")
+            .style("height", "8px")
+            .style("border-radius", "50%")
+            .style("background-color", getNodeColor(type));
+        item.append("span").text(type.toUpperCase());
+    });
+    
+    // Render Force Layout
+    const container = document.getElementById("canvas-container");
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    
+    const svg = d3.select("#canvas-container")
+        .append("svg")
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .attr("viewBox", [0, 0, width, height]);
+        
+    // Arrow marker defs
+    svg.append("defs").append("marker")
+        .attr("id", "arrow")
+        .attr("viewBox", "0 -5 10 10")
+        .attr("refX", 22)
+        .attr("refY", 0)
+        .attr("markerWidth", 5)
+        .attr("markerHeight", 5)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("fill", "rgba(255, 255, 255, 0.18)")
+        .attr("d", "M0,-5L10,0L0,5");
+        
+    const g = svg.append("g");
+    
+    // Zoom behavior
+    const zoomBehavior = d3.zoom()
+        .scaleExtent([0.1, 4])
+        .on("zoom", (event) => {
+            g.attr("transform", event.transform);
+        });
+        
+    svg.call(zoomBehavior);
+    
+    d3.select("#reset-view").on("click", () => {
+        svg.transition().duration(750).call(
+            zoomBehavior.transform,
+            d3.zoomIdentity.translate(width / 2, height / 2).scale(0.8)
+        );
+    });
+    
+    // Centering layout initial zoom
+    svg.call(zoomBehavior.transform, d3.zoomIdentity.translate(width / 2, height / 2).scale(0.8));
+    
+    const simulation = d3.forceSimulation(graphData.nodes)
+        .force("link", d3.forceLink(graphData.links).id(d => d.id).distance(130))
+        .force("charge", d3.forceManyBody().strength(-200))
+        .force("center", d3.forceCenter(0, 0))
+        .force("collision", d3.forceCollide().radius(30));
+        
+    // Draw links
+    const linkElements = g.append("g")
+        .attr("class", "links")
+        .selectAll("line")
+        .data(graphData.links)
+        .enter()
+        .append("line")
+        .attr("class", "link")
+        .attr("stroke", "rgba(255, 255, 255, 0.12)")
+        .attr("marker-end", "url(#arrow)");
+        
+    // Draw nodes container
+    const nodeElements = g.append("g")
+        .attr("class", "nodes")
+        .selectAll("g")
+        .data(graphData.nodes)
+        .enter()
+        .append("g")
+        .attr("class", "node-container")
+        .call(d3.drag()
+            .on("start", dragstarted)
+            .on("drag", dragged)
+            .on("end", dragended))
+        .on("click", (event, d) => showDetail(d));
+        
+    // Circles
+    nodeElements.append("circle")
+        .attr("class", "node")
+        .attr("r", 10)
+        .attr("fill", d => getNodeColor(d.type))
+        .attr("stroke", "#0f172a")
+        .attr("stroke-width", 2);
+        
+    // Labels
+    nodeElements.append("text")
+        .attr("dx", 14)
+        .attr("dy", 3)
+        .text(d => d.title)
+        .attr("fill", "#e2e8f0")
+        .style("font-size", "10px")
+        .style("font-weight", "500")
+        .style("text-shadow", "0 1px 2px rgba(0,0,0,0.8)")
+        .style("pointer-events", "none");
+        
+    // Simulation Tick
+    simulation.on("tick", () => {
+        linkElements
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
+            
+        nodeElements.attr("transform", d => `translate(${d.x}, ${d.y})`);
+    });
+    
+    // Highlights on Hover
+    nodeElements.on("mouseover", function(event, d) {
+        const neighbors = new Set([d.id]);
+        graphData.links.forEach(l => {
+            if (l.source.id === d.id) neighbors.add(l.target.id);
+            if (l.target.id === d.id) neighbors.add(l.source.id);
+        });
+        
+        nodeElements.style("opacity", n => neighbors.has(n.id) ? 1 : 0.15);
+        linkElements.style("opacity", l => (l.source.id === d.id || l.target.id === d.id) ? 1 : 0.05);
+        linkElements.style("stroke", l => (l.source.id === d.id || l.target.id === d.id) ? colors[d.type.toLowerCase()] || "#38bdf8" : "rgba(255,255,255,0.12)");
+    }).on("mouseout", function() {
+        nodeElements.style("opacity", 1);
+        linkElements.style("opacity", 1);
+        linkElements.style("stroke", "rgba(255,255,255,0.12)");
+    });
+    
+    // Live Search
+    d3.select("#search-input").on("input", function() {
+        const query = this.value.toLowerCase();
+        nodeElements.style("opacity", n => {
+            const match = n.title.toLowerCase().includes(query) || 
+                          n.id.toLowerCase().includes(query) ||
+                          n.tags.some(t => t.toLowerCase().includes(query));
+            return match ? 1 : 0.15;
+        });
+        linkElements.style("opacity", query ? 0.05 : 1);
+    });
+    
+    // Slide-out panel details logic
+    function showDetail(node) {
+        d3.select("#detail-title").text(node.title);
+        d3.select("#detail-path").text(node.id);
+        
+        const typeBadge = d3.select("#detail-type");
+        typeBadge.text(node.type).style("background-color", getNodeColor(node.type));
+        
+        d3.select("#detail-desc").text(node.description || "No description provided.");
+        
+        // Tags
+        const tagsDiv = d3.select("#detail-tags").html("");
+        if (node.tags && node.tags.length > 0) {
+            node.tags.forEach(t => {
+                tagsDiv.append("span").attr("class", "text-[9px] bg-slate-800 border border-slate-700 text-slate-300 px-2 py-0.5 rounded").text(`#${t}`);
+            });
+        }
+        
+        // Parse body using marked.js
+        const bodyDiv = d3.select("#detail-body-rendered");
+        if (node.body) {
+            bodyDiv.html(marked.parse(node.body));
+        } else {
+            bodyDiv.html("<em class='text-slate-500'>Empty concept body.</em>");
+        }
+        
+        d3.select("#detail-panel").style("transform", "translateX(0)");
+    }
+    
+    // Close panel
+    d3.select("#detail-close").on("click", () => {
+        d3.select("#detail-panel").style("transform", "translateX(384px)");
+    });
+    
+    // Drag functions
+    function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x;
+        d.fy = d.y;
+    }
+    function dragged(event, d) {
+        d.fx = event.x;
+        d.fy = event.y;
+    }
+    function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null;
+        d.fy = null;
+    }
+</script>
+{% endblock %}

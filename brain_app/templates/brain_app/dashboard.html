@@ -1,0 +1,145 @@
+{% extends 'brain_app/base.html' %}
+
+{% block title %}OKF Brain - Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight bg-gradient-to-r from-accent to-indigo-400 bg-clip-text text-transparent">System Dashboard</h1>
+            <p class="text-slate-400 mt-1">Overview of your Open Knowledge Format (OKF) local bundle.</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="{% url 'brain_app:visualizer' %}" class="px-5 py-2.5 rounded-lg text-sm font-semibold bg-accent text-slate-900 hover:bg-accentHover shadow-lg transition duration-200">
+                Open Network Graph
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="glass-card p-6 rounded-xl">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Concepts</p>
+                    <h3 class="text-4xl font-bold mt-2 text-accent">{{ total_concepts }}</h3>
+                </div>
+                <div class="p-3 bg-accent/10 text-accent rounded-lg">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                </div>
+            </div>
+            <div class="mt-4 text-xs text-slate-400 flex items-center gap-1">
+                <span>Stored under local bundle directories.</span>
+            </div>
+        </div>
+
+        <div class="glass-card p-6 rounded-xl md:col-span-2">
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Concept Types Distribution</p>
+            {% if type_counts %}
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-2">
+                {% for type, count in type_counts.items %}
+                <div class="bg-slate-800/40 border border-panelBorder p-4 rounded-lg flex flex-col justify-between">
+                    <span class="text-xs font-medium text-slate-400 truncate uppercase">{{ type }}</span>
+                    <span class="text-2xl font-bold text-slate-200 mt-1">{{ count }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400 mt-4 italic">No concepts indexed yet. Trigger an ingestion or create one!</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Active Bundle Configuration -->
+    <div class="glass-card p-6 rounded-xl space-y-4">
+        <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+            <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+            Active OKF Bundle Directory Path
+        </h3>
+        <p class="text-xs text-slate-400">Select any absolute folder path on your system to target or create a new OKF bundle outside this project directory.</p>
+        <form action="{% url 'brain_app:change_root' %}" method="post" class="flex flex-col sm:flex-row items-end sm:items-center gap-4">
+            {% csrf_token %}
+            <div class="flex-grow w-full">
+                <input type="text" name="new_root_path" value="{{ bundle_root }}" class="w-full bg-slate-900/60 border border-panelBorder rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-accent font-mono" placeholder="e.g., /Users/username/my_okf_bundle" required>
+            </div>
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+                <label class="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-300">
+                    <input type="checkbox" name="init_if_missing" checked class="w-4 h-4 rounded bg-slate-950 border border-panelBorder text-accent focus:ring-accent accent-accent">
+                    Initialize if missing
+                </label>
+                <button type="submit" class="px-5 py-2.5 rounded-lg text-sm font-semibold bg-accent text-slate-900 hover:bg-accentHover transition duration-200 shadow-md">
+                    Switch / Initialize
+                </button>
+            </div>
+        </form>
+        
+        <div class="border-t border-panelBorder pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div class="text-xs text-slate-400 max-w-xl">
+                <span class="font-bold text-slate-300 flex items-center gap-1">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    Sincronización de Disco:
+                </span>
+                Si has modificado, renombrado o eliminado archivos manualmente en la carpeta del bundle, utiliza este botón para recalcular los índices y eliminar automáticamente las referencias y enlaces rotos en los demás archivos.
+            </div>
+            <form action="{% url 'brain_app:rebuild_bundle' %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="px-5 py-2.5 rounded-lg text-xs font-semibold bg-indigo-600/20 hover:bg-indigo-600 border border-indigo-500/40 text-indigo-300 hover:text-white transition duration-200 shadow-md flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 4.79M9 9h9v9"></path></svg>
+                    Rehacer / Sincronizar Bundle
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Section Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Ingestion Quick Action Card -->
+        <div class="glass-card p-6 rounded-xl flex flex-col justify-between h-fit">
+            <div>
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Quick Ingestion
+                </h3>
+                <p class="text-xs text-slate-400 mt-1 mb-4">Paste any raw material, article snippet, or webpage URL to instantly ingest atomic concepts.</p>
+                
+                <form action="{% url 'brain_app:ingest' %}" method="post" class="space-y-4">
+                    {% csrf_token %}
+                    <textarea name="source" rows="4" class="w-full bg-slate-900/60 border border-panelBorder rounded-lg p-3 text-sm text-slate-200 focus:outline-none focus:border-accent placeholder-slate-500" placeholder="Paste text snippet or URL here..."></textarea>
+                    <button type="submit" class="w-full py-2.5 rounded-lg text-sm font-semibold bg-slate-800 hover:bg-slate-700 border border-panelBorder text-slate-200 transition duration-200">
+                        Trigger Ingestion
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recent Logs (log.md) -->
+        <div class="glass-card p-6 rounded-xl lg:col-span-2">
+            <h3 class="text-lg font-bold text-slate-100 mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Recent Modifications Log
+            </h3>
+            
+            {% if logs %}
+            <div class="relative pl-6 border-l border-slate-700/60 space-y-6">
+                {% for log in logs %}
+                <div class="relative">
+                    <!-- Dot marker -->
+                    <span class="absolute -left-[31px] top-1 h-3.5 w-3.5 rounded-full border-2 border-slate-900 bg-accent"></span>
+                    <h4 class="text-sm font-bold text-slate-300">{{ log.date }}</h4>
+                    
+                    <ul class="mt-2 space-y-1.5 pl-3 list-disc text-slate-400 text-xs">
+                        {% for entry in log.entries %}
+                        <li>{{ entry }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-slate-400 italic">No log entries found. Modify the bundle to generate activities.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

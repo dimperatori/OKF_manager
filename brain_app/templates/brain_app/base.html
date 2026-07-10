@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}OKF Brain Dashboard{% endblock %}</title>
+    <!-- Tailwind CSS for sleek grid layouts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkBgStart: '#0f172a',
+                        darkBgEnd: '#1e293b',
+                        panelBg: 'rgba(30, 41, 59, 0.7)',
+                        panelBorder: 'rgba(255, 255, 255, 0.08)',
+                        accent: '#38bdf8',
+                        accentHover: '#0ea5e9',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: radial-gradient(circle at center, #1e293b, #0f172a);
+            min-height: 100vh;
+            color: #f8fafc;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="font-sans antialiased">
+
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <aside class="w-64 glass-card border-r border-panelBorder flex flex-col justify-between fixed h-full z-30">
+            <div>
+                <!-- Brand logo -->
+                <div class="p-6 border-b border-panelBorder">
+                    <a href="{% url 'brain_app:dashboard' %}" class="flex items-center gap-3">
+                        <span class="text-2xl font-bold bg-gradient-to-r from-accent to-indigo-400 bg-clip-text text-transparent">OKF Brain</span>
+                    </a>
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400">v0.1 Bundle Manager</span>
+                </div>
+                
+                <!-- Nav items -->
+                <nav class="p-4 space-y-1">
+                    <a href="{% url 'brain_app:dashboard' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition hover:bg-slate-800/50 {% if request.resolver_match.url_name == 'dashboard' %}bg-slate-800 text-accent{% else %}text-slate-300{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z"></path></svg>
+                        Dashboard
+                    </a>
+                    <a href="{% url 'brain_app:concepts_list' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition hover:bg-slate-800/50 {% if request.resolver_match.url_name == 'concepts_list' or request.resolver_match.url_name == 'concept_detail' %}bg-slate-800 text-accent{% else %}text-slate-300{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        Browse Concepts
+                    </a>
+                    <a href="{% url 'brain_app:visualizer' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition hover:bg-slate-800/50 {% if request.resolver_match.url_name == 'visualizer' %}bg-slate-800 text-accent{% else %}text-slate-300{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        Network Graph
+                    </a>
+                    <a href="{% url 'brain_app:ingest' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition hover:bg-slate-800/50 {% if request.resolver_match.url_name == 'ingest' %}bg-slate-800 text-accent{% else %}text-slate-300{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        LLM Ingestion
+                    </a>
+                    <a href="{% url 'brain_app:link' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition hover:bg-slate-800/50 {% if request.resolver_match.url_name == 'link' %}bg-slate-800 text-accent{% else %}text-slate-300{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        Cross-Linker
+                    </a>
+                    <a href="{% url 'brain_app:validate' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition hover:bg-slate-800/50 {% if request.resolver_match.url_name == 'validate' %}bg-slate-800 text-accent{% else %}text-slate-300{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Audit / Conformance
+                    </a>
+                    <a href="{% url 'brain_app:chat' %}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-semibold transition hover:bg-slate-800/50 {% if request.resolver_match.url_name == 'chat' %}bg-slate-800 text-accent{% else %}text-slate-300{% endif %}">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        Chat Assistant
+                    </a>
+                </nav>
+            </div>
+            
+            <!-- Footer info inside sidebar -->
+            <div class="p-4 border-t border-panelBorder text-xs text-slate-400">
+                OKF Bundle Version: <strong>0.1</strong><br>
+                Host: Localhost
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-grow pl-64">
+            <!-- Header bar -->
+            <header class="h-16 border-b border-panelBorder flex items-center justify-between px-8 bg-slate-900/40 backdrop-blur-md sticky top-0 z-20">
+                <div class="text-sm text-slate-300">
+                    Active Directory: <span class="font-mono text-xs bg-slate-800 px-2 py-1 rounded">{{ bundle_root|default:"." }}</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-400/10 text-emerald-400">
+                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+                        Active
+                    </span>
+                </div>
+            </header>
+
+            <!-- Inner Page -->
+            <main class="p-8 max-w-7xl mx-auto">
+                <!-- Notifications/Messages -->
+                {% if messages %}
+                <div class="mb-6 space-y-2">
+                    {% for message in messages %}
+                    <div class="p-4 rounded-lg text-sm font-medium glass-card flex items-center gap-3 {% if message.tags == 'success' %}border-emerald-500/30 text-emerald-300 bg-emerald-500/5{% elif message.tags == 'error' %}border-rose-500/30 text-rose-300 bg-rose-500/5{% else %}border-amber-500/30 text-amber-300 bg-amber-500/5{% endif %}">
+                        {% if message.tags == 'success' %}
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        {% else %}
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        {% endif %}
+                        <div>{{ message }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+</body>
+</html>

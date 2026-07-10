@@ -1,0 +1,65 @@
+{% extends 'brain_app/base.html' %}
+
+{% block title %}OKF Brain - Ingest Content{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-4xl mx-auto">
+    <!-- Header -->
+    <div>
+        <h1 class="text-3xl font-bold tracking-tight bg-gradient-to-r from-accent to-indigo-400 bg-clip-text text-transparent">LLM Ingestion Center</h1>
+        <p class="text-slate-400 mt-1">Submit source material or URLs to auto-extract atomic concepts and establish links.</p>
+    </div>
+
+    <!-- Main Card -->
+    <div class="glass-card p-8 rounded-xl space-y-6">
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            <div class="space-y-2">
+                <label for="source" class="block text-sm font-semibold text-slate-300">
+                    Source Material (Raw Text or URL)
+                </label>
+                <p class="text-xs text-slate-400">
+                    Paste raw text (paragraphs, articles, papers) OR a public website URL (starting with http:// or https://).
+                </p>
+                <textarea id="source" name="source" rows="8" required class="w-full bg-slate-950/60 border border-panelBorder rounded-lg p-4 text-sm text-slate-200 focus:outline-none focus:border-accent placeholder-slate-500" placeholder="Paste your article snippet here, OR type a URL like: https://en.wikipedia.org/wiki/Quantum_mechanics"></textarea>
+            </div>
+
+            <div class="space-y-2">
+                <label for="mode" class="block text-sm font-semibold text-slate-300">
+                    Ingestion Mode / Modo de Ingestión
+                </label>
+                <select id="mode" name="mode" class="w-full bg-slate-950/60 border border-panelBorder rounded-lg px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent">
+                    <option value="multiple" selected>Extraer múltiples conceptos atómicos (Recomendado para grafos)</option>
+                    <option value="single">Consolidar todo en un único documento general</option>
+                </select>
+                <p class="text-xs text-slate-400">
+                    Elige si deseas que la IA divida el tema en múltiples notas independientes interconectadas o si prefieres sintetizar todo en una sola página.
+                </p>
+            </div>
+
+            <!-- Configuration info -->
+            <div class="p-4 bg-slate-800/40 border border-panelBorder rounded-lg flex items-start gap-3">
+                <svg class="w-5 h-5 text-accent mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <div class="text-xs text-slate-400 space-y-1">
+                    <p class="font-semibold text-slate-300">How this works:</p>
+                    <p>1. The tool reads the source text or crawls the HTML content (stripping tags).</p>
+                    <p>2. It compiles metadata of all existing concepts inside your OKF bundle.</p>
+                    <p>3. It prompts Gemini to extract atomic concepts and map semantic cross-links directly to existing ones.</p>
+                    <p>4. New Markdown files are generated in appropriate folders, and indexes are updated.</p>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="flex justify-end gap-3 pt-2">
+                <a href="{% url 'brain_app:dashboard' %}" class="px-5 py-2.5 rounded-lg text-sm font-semibold bg-slate-800 hover:bg-slate-700 border border-panelBorder text-slate-300 transition duration-200">
+                    Cancel
+                </a>
+                <button type="submit" class="px-6 py-2.5 rounded-lg text-sm font-semibold bg-accent text-slate-900 hover:bg-accentHover shadow-lg transition duration-200">
+                    Trigger Extraction Process
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

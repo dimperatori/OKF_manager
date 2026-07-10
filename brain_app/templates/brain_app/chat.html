@@ -1,0 +1,220 @@
+{% extends 'brain_app/base.html' %}
+
+{% block title %}OKF Brain - Chat Assistant{% endblock %}
+
+{% block extra_head %}
+<!-- Marked.js to render Assistant's responses as rich Markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+    .chat-container {
+        height: calc(100vh - 12rem);
+    }
+    .chat-bubble {
+        max-width: 80%;
+    }
+    .user-bubble {
+        background: rgba(56, 189, 248, 0.15);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        align-self: flex-end;
+    }
+    .assistant-bubble {
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        align-self: flex-start;
+    }
+    /* Typing animation indicator */
+    .typing-indicator span {
+        height: 6px;
+        width: 6px;
+        background-color: #94a3b8;
+        display: inline-block;
+        border-radius: 50%;
+        animation: bounce 1.3s infinite ease-in-out;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1.0); }
+    }
+    /* Markdown inside chat bubble override */
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+        font-weight: 600;
+        margin-top: 10px;
+        margin-bottom: 6px;
+        color: #fff;
+    }
+    .markdown-body h1 { font-size: 1.15rem; }
+    .markdown-body h2 { font-size: 1.05rem; }
+    .markdown-body h3 { font-size: 0.95rem; }
+    .markdown-body p { margin-bottom: 8px; }
+    .markdown-body ul, .markdown-body ol { margin-left: 18px; margin-bottom: 8px; list-style-type: disc; }
+    .markdown-body pre {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255,255,255,0.06);
+        padding: 10px;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: 0.8rem;
+        overflow-x: auto;
+        margin: 8px 0;
+    }
+    .markdown-body code {
+        background: rgba(15, 23, 42, 0.6);
+        padding: 1px 4px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col chat-container border border-panelBorder rounded-xl overflow-hidden glass-card">
+    <!-- Chat Header -->
+    <div class="p-4 border-b border-panelBorder bg-slate-900/40 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-accent/15 text-accent rounded-lg">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-white leading-tight">Asistente de Conocimiento OKF</h1>
+                <p class="text-[10px] text-slate-400 mt-0.5">Analiza tu grafo de conocimientos y redacta notas utilizando Gemini LLM</p>
+            </div>
+        </div>
+        <div>
+            <button id="clear-chat" class="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-slate-800 border border-panelBorder hover:bg-slate-700 transition">
+                Limpiar Chat
+            </button>
+        </div>
+    </div>
+
+    <!-- Chat Messages View -->
+    <div id="chat-timeline" class="flex-grow p-6 overflow-y-auto flex flex-col gap-4">
+        <!-- Initial Greetings -->
+        <div class="chat-bubble assistant-bubble rounded-2xl p-4 text-sm text-slate-200">
+            ¡Hola! Soy tu asistente de conocimiento OKF.<br><br>
+            Tengo acceso completo a todos los conceptos de tu bundle actual en <strong>{{ bundle_root }}</strong>.<br><br>
+            Puedes hacerme preguntas como:
+            <ul class="list-disc pl-5 mt-2 space-y-1 text-slate-300">
+                <li><em>"¿Qué conceptos tenemos y cómo se relacionan?"</em></li>
+                <li><em>"Ayúdame a redactar una nueva nota sobre la Ley de Gravedad"</em></li>
+                <li><em>"¿Qué dependencias tiene el concepto de Quantum Physics?"</em></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Thinking indicator -->
+    <div id="thinking-indicator" class="px-6 py-3 hidden">
+        <div class="chat-bubble assistant-bubble rounded-2xl px-4 py-3 flex items-center gap-2 text-xs text-slate-400">
+            <span>Asistente pensando</span>
+            <div class="typing-indicator flex items-center gap-1 mt-0.5">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Form area -->
+    <div class="p-4 border-t border-panelBorder bg-slate-900/30">
+        <form id="chat-form" class="flex gap-3">
+            <input type="text" id="chat-input" required class="flex-grow bg-slate-950/60 border border-panelBorder rounded-lg px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-accent placeholder-slate-500" placeholder="Haz una pregunta o pide redactar un nuevo concepto..." autocomplete="off">
+            <button type="submit" class="px-6 rounded-lg text-sm font-semibold bg-accent text-slate-900 hover:bg-accentHover transition duration-200 shadow-md">
+                Enviar
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Multi-turn chat history accumulator
+    // Schema matches Gemini's API format
+    let chatHistory = [];
+    
+    const timeline = document.getElementById('chat-timeline');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const thinking = document.getElementById('thinking-indicator');
+    const clearBtn = document.getElementById('clear-chat');
+    
+    // Clear chat history
+    clearBtn.addEventListener('click', () => {
+        chatHistory = [];
+        timeline.innerHTML = `
+            <div class="chat-bubble assistant-bubble rounded-2xl p-4 text-sm text-slate-200">
+                Historial de chat limpiado. ¿En qué puedo ayudarte con tu base de conocimientos OKF ahora?
+            </div>
+        `;
+    });
+
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = chatInput.value.trim();
+        if (!msg) return;
+        
+        chatInput.value = '';
+        appendMessage('user', msg);
+        
+        // Show thinking indicator
+        thinking.classList.remove('hidden');
+        timeline.scrollTop = timeline.scrollHeight;
+        
+        try {
+            const response = await fetch("{% url 'brain_app:chat_message_api' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    message: msg,
+                    history: chatHistory
+                })
+            });
+            
+            const data = await response.json();
+            
+            // Hide thinking indicator
+            thinking.classList.add('hidden');
+            
+            if (data.response) {
+                appendMessage('model', data.response);
+                
+                // Add exchanged messages to local session history
+                chatHistory.push({
+                    "role": "user",
+                    "parts": [{"text": msg}]
+                });
+                chatHistory.push({
+                    "role": "model",
+                    "parts": [{"text": data.response}]
+                });
+            } else {
+                appendMessage('model', `*Error del Servidor: ${data.error || 'No se pudo obtener respuesta.'}*`);
+            }
+        } catch (error) {
+            thinking.classList.add('hidden');
+            appendMessage('model', `*Error de Red: ${error.message}*`);
+        }
+        
+        timeline.scrollTop = timeline.scrollHeight;
+    });
+
+    function appendMessage(role, text) {
+        const bubble = document.createElement('div');
+        
+        if (role === 'user') {
+            bubble.className = 'chat-bubble user-bubble rounded-2xl p-4 text-sm text-slate-200';
+            bubble.textContent = text;
+        } else {
+            bubble.className = 'chat-bubble assistant-bubble rounded-2xl p-4 text-sm text-slate-200 markdown-body';
+            // Render markdown using marked.js
+            bubble.innerHTML = marked.parse(text);
+        }
+        
+        timeline.appendChild(bubble);
+        timeline.scrollTop = timeline.scrollHeight;
+    }
+</script>
+{% endblock %}
