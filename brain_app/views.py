@@ -569,3 +569,96 @@ def rebuild_bundle_view(request):
         messages.error(request, f"Failed to rebuild bundle: {e}")
         
     return redirect('brain_app:dashboard')
+
+
+def create_bundle(request):
+    if request.method == 'POST':
+        bundle_root_str = request.POST.get('bundle_root', '').strip()
+        if not bundle_root_str:
+            messages.error(request, "El directorio raíz no puede estar vacío.")
+            return redirect('brain_app:create_bundle')
+            
+        bundle_root = Path(bundle_root_str).resolve()
+        
+        # Extract directories and descriptions from form lists
+        paths = request.POST.getlist('dir_paths[]')
+        descriptions = request.POST.getlist('dir_descriptions[]')
+        
+        directories = {}
+        for p, desc in zip(paths, descriptions):
+            p_clean = p.strip("/").strip().replace("\\", "/")
+            if p_clean:
+                directories[p_clean] = desc.strip()
+                
+        try:
+            # 1. Initialize root bundle directory and configuration files
+            manager.init_bundle(bundle_root)
+            
+            # 2. Create subdirectories physically
+            for sub in directories.keys():
+                sub_path = bundle_root / sub
+                sub_path.mkdir(parents=True, exist_ok=True)
+                
+            # 3. Save config
+            config_data = {
+                "bundle_root": str(bundle_root),
+                "directories": directories
+            }
+            manager.save_config(config_data)
+            
+            # 4. Save to session
+            request.session['bundle_root'] = str(bundle_root)
+            
+            # 5. Run indexing to generate all subfolders index.md with their descriptions
+            manager.run_indexing(bundle_root)
+            
+            messages.success(request, f"¡OKF inicializado con éxito en {bundle_root}!")
+            return redirect('brain_app:dashboard')
+        except Exception as e:
+            messages.error(request, f"Error al inicializar el OKF: {e}")
+            return redirect('brain_app:create_bundle')
+            
+    return render(request, 'brain_app/create_bundle.html')
+
+
+def manage_directories(request):
+    root = get_bundle_root(request)
+    config_data = manager.load_config()
+    current_dirs = config_data.get("directories", {})
+    
+    if request.method == 'POST':
+        paths = request.POST.getlist('dir_paths[]')
+        descriptions = request.POST.getlist('dir_descriptions[]')
+        
+        directories = {}
+        for p, desc in zip(paths, descriptions):
+            p_clean = p.strip("/").strip().replace("\\", "/")
+            if p_clean:
+                directories[p_clean] = desc.strip()
+                
+        try:
+            # Update configuration
+            config_data["directories"] = directories
+            config_data["bundle_root"] = str(root)
+            manager.save_config(config_data)
+            
+            # Physically create any new directories that were added
+            for sub in directories.keys():
+                sub_path = root / sub
+                sub_path.mkdir(parents=True, exist_ok=True)
+                
+            # Regenerate indexes (it will auto-update or create index.md for all configured subdirs)
+            manager.run_indexing(root)
+            
+            messages.success(request, "Configuración de directorios y propósitos guardada con éxito.")
+            return redirect('brain_app:manage_directories')
+        except Exception as e:
+            messages.error(request, f"Error al guardar la configuración: {e}")
+            return redirect('brain_app:manage_directories')
+            
+    # Prepare list for template
+    dir_list = [{"path": k, "description": v} for k, v in current_dirs.items()]
+    context = {
+        "dir_list": dir_list
+    }
+    return render(request, 'brain_app/manage_directories.html', context)

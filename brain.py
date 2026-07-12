@@ -167,6 +167,16 @@ def ingest_content(bundle_root: Path, source_str: str, mode: str = "multiple"):
     existing_concepts = scan_existing_concepts(bundle_root)
     existing_subfolders = manager.get_existing_subfolders(bundle_root)
     
+    # Load directory descriptions/purposes from config
+    config_data = manager.load_config()
+    directories_config = config_data.get("directories", {})
+    
+    dir_descriptions_list = []
+    for folder in existing_subfolders:
+        desc = directories_config.get(folder, "No se proporcionó explicación sobre su propósito.")
+        dir_descriptions_list.append(f"- Carpeta '{folder}': {desc}")
+    dir_descriptions_str = "\n".join(dir_descriptions_list)
+    
     # 3. Call API or fallback
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
@@ -203,11 +213,14 @@ Here is the source material to analyze:
 Here is a list of already existing concepts in the local OKF bundle:
 {json.dumps(existing_concepts, indent=2)}
 
+Here is a list of the existing subfolders in the bundle and their specific purposes/explanations:
+{dir_descriptions_str}
+
 Please perform the following operations:
 1. Identify the core, atomic concepts present in the source material.
 2. For each identified concept, determine:
    - A short, clean filename in Spanish (lowercase, e.g. `mecanica_cuantica.md`).
-   - A target subfolder. CRITICAL: You MUST choose from one of the following existing subfolders in the bundle: {existing_subfolders}. Do NOT invent or output any other subfolder name. If there are no existing subfolders, use '.' as the subfolder.
+   - A target subfolder. CRITICAL: You MUST choose from one of the following existing subfolders in the bundle: {existing_subfolders}. Analyze the concept content and map it to the subfolder whose purpose/explanation is most relevant to the concept. Do NOT invent or output any other subfolder name. If there are no existing subfolders, use '.' as the subfolder.
    - The concept type in Spanish (e.g. `concepto`, `metodologia`, `formula`, `esquema`).
    - A concise, descriptive title in Spanish.
    - A one-sentence description in Spanish.

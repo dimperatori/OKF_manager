@@ -1,0 +1,106 @@
+{% extends 'brain_app/base.html' %}
+{% block title %}Gestionar Directorios - OKF Brain{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-100">Gestionar Carpetas y Propósitos</h2>
+            <p class="text-xs text-slate-400">Edita las explicaciones de las carpetas existentes o añade nuevas subcarpetas a la estructura.</p>
+        </div>
+        <a href="{% url 'brain_app:dashboard' %}" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-panelBorder transition">
+            Volver al Dashboard
+        </a>
+    </div>
+
+    <!-- Active Root Info -->
+    <div class="glass-card p-4 rounded-xl text-xs text-slate-300 flex items-center gap-2">
+        <svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span>Repositorio OKF Activo: <strong class="font-mono bg-slate-900/60 px-2 py-1 rounded border border-panelBorder ml-1">{{ bundle_root }}</strong></span>
+    </div>
+
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        <div class="glass-card p-6 rounded-xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2 2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    Explicación y Propósito de Carpetas
+                </h3>
+                <button type="button" onclick="addDirectoryRow()" class="px-3 py-1.5 rounded bg-accent text-slate-900 hover:bg-accentHover font-semibold text-xs transition flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Añadir Carpeta
+                </button>
+            </div>
+            
+            <div id="directories-container" class="space-y-3">
+                {% for item in dir_list %}
+                <div class="flex gap-4 items-start bg-slate-900/30 p-4 rounded-lg border border-panelBorder relative group">
+                    <div class="w-1/3">
+                        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Ruta Relativa</label>
+                        <input type="text" name="dir_paths[]" value="{{ item.path }}" class="w-full bg-slate-950 border border-panelBorder rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-accent font-mono" placeholder="e.g., legal" required>
+                    </div>
+                    <div class="flex-grow">
+                        <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Propósito / Explicación</label>
+                        <input type="text" name="dir_descriptions[]" value="{{ item.description }}" class="w-full bg-slate-950 border border-panelBorder rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-accent" placeholder="e.g., Propósito de la carpeta..." required>
+                    </div>
+                    <button type="button" onclick="removeRow(this)" class="mt-5 p-2 text-slate-400 hover:text-rose-400 transition" title="Eliminar del mapa">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-16v1M4 7h16"></path></svg>
+                    </button>
+                </div>
+                {% empty %}
+                <div id="empty-state" class="text-center py-6 text-sm text-slate-400">
+                    No hay carpetas configuradas. Haz clic en "Añadir Carpeta" para empezar.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <button type="submit" class="px-6 py-3 rounded-lg text-sm font-bold bg-accent text-slate-900 hover:bg-accentHover transition duration-200 shadow-md">
+                Guardar Cambios y Propósitos
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function addDirectoryRow() {
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState) {
+        emptyState.remove();
+    }
+    
+    const container = document.getElementById('directories-container');
+    const newRow = document.createElement('div');
+    newRow.className = "flex gap-4 items-start bg-slate-900/30 p-4 rounded-lg border border-panelBorder relative group";
+    newRow.innerHTML = `
+        <div class="w-1/3">
+            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Ruta Relativa</label>
+            <input type="text" name="dir_paths[]" class="w-full bg-slate-950 border border-panelBorder rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-accent font-mono" placeholder="e.g., legal" required>
+        </div>
+        <div class="flex-grow">
+            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Propósito / Explicación</label>
+            <input type="text" name="dir_descriptions[]" class="w-full bg-slate-950 border border-panelBorder rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-accent" placeholder="e.g., Almacena leyes, regulaciones y procedimientos judiciales." required>
+        </div>
+        <button type="button" onclick="removeRow(this)" class="mt-5 p-2 text-slate-400 hover:text-rose-400 transition" title="Eliminar fila">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-16v1M4 7h16"></path></svg>
+        </button>
+    `;
+    container.appendChild(newRow);
+}
+
+function removeRow(button) {
+    button.closest('.flex').remove();
+    const container = document.getElementById('directories-container');
+    if (container.children.length === 0) {
+        const emptyState = document.createElement('div');
+        emptyState.id = 'empty-state';
+        emptyState.className = 'text-center py-6 text-sm text-slate-400';
+        emptyState.innerText = 'No hay carpetas configuradas. Haz clic en "Añadir Carpeta" para empezar.';
+        container.appendChild(emptyState);
+    }
+}
+</script>
+{% endblock %}

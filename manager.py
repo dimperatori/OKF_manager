@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import datetime
+import json
 import os
 import re
 import sys
@@ -76,6 +77,29 @@ def find_bundle_root(start_path: Path) -> Path:
     return current
 
 
+def load_config() -> dict:
+    """
+    Loads the OKF config JSON file from the workspace directory.
+    """
+    config_file = Path(__file__).resolve().parent / ".okf_config.json"
+    if config_file.is_file():
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def save_config(config_data: dict):
+    """
+    Saves the config JSON file.
+    """
+    config_file = Path(__file__).resolve().parent / ".okf_config.json"
+    with open(config_file, 'w', encoding='utf-8') as f:
+        json.dump(config_data, f, indent=2, ensure_ascii=False)
+
+
 def get_existing_subfolders(bundle_root: Path) -> list:
     """
     Walks the bundle root and returns a sorted list of relative paths for all existing subfolders,
@@ -135,8 +159,7 @@ def init_bundle(target_dir: Path):
     """
     Initializes a new OKF v0.1 bundle in the target directory.
     """
-    if not target_dir.is_dir():
-        raise FileNotFoundError(f"Target directory does not exist: {target_dir}. Directory creation is disabled.")
+    target_dir.mkdir(parents=True, exist_ok=True)
     
     index_file = target_dir / "index.md"
     log_file = target_dir / "log.md"
@@ -335,6 +358,17 @@ def update_index_file(bundle_root: Path, dir_path: Path, concepts: list):
     if is_root:
         frontmatter["okf_version"] = "0.1"
         
+    # Override description with user-specified purpose from config if available
+    rel_dir = dir_path.relative_to(bundle_root)
+    rel_dir_str = str(rel_dir).replace("\\", "/")
+    if rel_dir_str == ".":
+        rel_dir_str = ""
+    config = load_config()
+    directories = config.get("directories", {})
+    custom_desc = directories.get(rel_dir_str)
+    if custom_desc:
+        frontmatter["description"] = custom_desc
+        
     # Build updated body
     new_body_parts = []
     if custom_before.strip():
@@ -411,6 +445,14 @@ def run_indexing(bundle_root: Path):
                     
     # Ensure the root is always index updated
     all_dirs.add(bundle_root)
+    
+    # Ensure all directories configured in .okf_config.json are indexed too (even if empty)
+    config = load_config()
+    for rel_dir_str in config.get("directories", {}).keys():
+        if rel_dir_str:
+            dir_path = (bundle_root / rel_dir_str).resolve()
+            if dir_path.is_dir() and dir_path.is_relative_to(bundle_root.resolve()):
+                all_dirs.add(dir_path)
     
     # 2. Update index.md in each relevant directory
     for d in sorted(all_dirs):
