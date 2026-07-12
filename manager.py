@@ -743,10 +743,10 @@ def rename_concept(bundle_root: Path, old_rel_path: str, new_rel_path: str, new_
     with open(old_file, 'r', encoding='utf-8') as f:
         content = f.read()
         
-    frontmatter, body = parse_markdown_file(content)
+    frontmatter, body = parse_markdown(content)
     if new_title and frontmatter:
         frontmatter['title'] = new_title
-        content = write_markdown_file(frontmatter, body)
+        content = format_markdown(frontmatter, body)
         
     # 2. Write to new location
     with open(new_file, 'w', encoding='utf-8') as f:
