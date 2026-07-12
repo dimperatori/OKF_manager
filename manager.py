@@ -76,11 +76,67 @@ def find_bundle_root(start_path: Path) -> Path:
     return current
 
 
+def get_existing_subfolders(bundle_root: Path) -> list:
+    """
+    Walks the bundle root and returns a sorted list of relative paths for all existing subfolders,
+    excluding hidden folders, __pycache__, and Django application directories.
+    """
+    subfolders = []
+    bundle_root_resolved = bundle_root.resolve()
+    for root, dirs, files in os.walk(bundle_root_resolved):
+        # Exclude hidden folders and Django code folders
+        dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('__pycache__', 'brain_app', 'okf_web')]
+        for d in dirs:
+            dir_path = Path(root) / d
+            try:
+                rel_path = dir_path.relative_to(bundle_root_resolved)
+                subfolders.append(str(rel_path))
+            except ValueError:
+                pass
+    return sorted(list(set(subfolders)))
+
+
+def adapt_subfolder(bundle_root: Path, requested_subfolder: str) -> str:
+    """
+    Maps the requested subfolder to an existing subfolder in the bundle root.
+    If it already exists, returns it.
+    Otherwise, tries to find the closest matching existing subfolder.
+    If no subfolders exist, returns ".".
+    """
+    existing_subdirs = get_existing_subfolders(bundle_root)
+    if not existing_subdirs:
+        return "."
+        
+    requested_clean = requested_subfolder.replace("\\", "/").strip("/").strip().lower()
+    if not requested_clean or requested_clean == ".":
+        return "."
+        
+    # Check exact match (case-insensitive)
+    for subdir in existing_subdirs:
+        if subdir.lower() == requested_clean:
+            return subdir
+            
+    # Check if the requested name is a substring of any existing folder, or vice-versa
+    for subdir in existing_subdirs:
+        subdir_clean = subdir.lower()
+        if requested_clean in subdir_clean or subdir_clean in requested_clean:
+            return subdir
+            
+    # Try fuzzy match: if there's a folder containing "concept" as a preferred fallback
+    for subdir in existing_subdirs:
+        if "concept" in subdir.lower():
+            return subdir
+            
+    # Default fallback to the first existing subdirectory
+    return existing_subdirs[0]
+
+
 def init_bundle(target_dir: Path):
     """
     Initializes a new OKF v0.1 bundle in the target directory.
     """
-    target_dir.mkdir(parents=True, exist_ok=True)
+    if not target_dir.is_dir():
+        raise FileNotFoundError(f"Target directory does not exist: {target_dir}. Directory creation is disabled.")
     
     index_file = target_dir / "index.md"
     log_file = target_dir / "log.md"
@@ -136,7 +192,8 @@ def log_message(bundle_root: Path, message: str):
     """
     log_file = bundle_root / "log.md"
     if not log_file.is_file():
-        log_file.parent.mkdir(parents=True, exist_ok=True)
+        if not bundle_root.is_dir():
+            raise FileNotFoundError(f"Bundle root directory does not exist: {bundle_root}")
         with open(log_file, 'w', encoding='utf-8') as f:
             f.write("")
             
@@ -182,7 +239,8 @@ def create_concept(bundle_root: Path, subfolder: str, name: str, concept_type: s
     if not target_dir.is_relative_to(bundle_root.resolve()):
         raise ValueError("Cannot create concept files outside the bundle root.")
         
-    target_dir.mkdir(parents=True, exist_ok=True)
+    if not target_dir.is_dir():
+        raise FileNotFoundError(f"Subfolder directory does not exist: '{subfolder}'. Directory creation is disabled.")
     
     if not name.endswith(".md"):
         name += ".md"
@@ -678,7 +736,8 @@ def rename_concept(bundle_root: Path, old_rel_path: str, new_rel_path: str, new_
         raise FileExistsError(f"Target path already exists: {new_rel}")
         
     # Ensure parent dir of target exists
-    new_file.parent.mkdir(parents=True, exist_ok=True)
+    if not new_file.parent.is_dir():
+        raise FileNotFoundError(f"Target parent directory does not exist: '{new_file.parent.relative_to(bundle_root)}'. Directory creation is disabled.")
     
     # 1. Read file content and update frontmatter if needed
     with open(old_file, 'r', encoding='utf-8') as f:

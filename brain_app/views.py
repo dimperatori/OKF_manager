@@ -163,13 +163,20 @@ def concept_detail(request, rel_path):
                 "title": edge["source"].split("/")[-1].replace(".md", "").replace("_", " ").title()
             })
             
+    # Derive subfolder name and retrieve existing subfolders for UI selection
+    parent_dir = Path(clean_path).parent
+    subfolder = "" if parent_dir == Path('.') else str(parent_dir)
+    existing_subfolders = manager.get_existing_subfolders(root)
+
     context = {
         "rel_path": my_path,
         "frontmatter": frontmatter,
         "body": body,
         "outward_links": outward_links,
         "backlinks": backlinks,
-        "filename": file_path.name
+        "filename": file_path.name,
+        "subfolder": subfolder,
+        "existing_subfolders": existing_subfolders
     }
     return render(request, 'brain_app/concept_detail.html', context)
 

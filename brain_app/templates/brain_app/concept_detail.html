@@ -122,7 +122,12 @@
                     </div>
                     <div>
                         <label class="block text-[10px] uppercase font-bold text-slate-400">New Subfolder</label>
-                        <input type="text" name="subfolder" value="{{ subfolder }}" class="w-full bg-slate-900 border border-panelBorder rounded p-1.5 text-xs text-white focus:outline-none focus:border-accent font-mono">
+                        <input type="text" name="subfolder" value="{{ subfolder }}" list="subfolders-list" class="w-full bg-slate-900 border border-panelBorder rounded p-1.5 text-xs text-white focus:outline-none focus:border-accent font-mono">
+                        <datalist id="subfolders-list">
+                            {% for subdir in existing_subfolders %}
+                                <option value="{{ subdir }}"></option>
+                            {% endfor %}
+                        </datalist>
                     </div>
                     <div>
                         <label class="block text-[10px] uppercase font-bold text-slate-400">New Filename</label>

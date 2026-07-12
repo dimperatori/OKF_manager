@@ -163,8 +163,9 @@ def ingest_content(bundle_root: Path, source_str: str, mode: str = "multiple"):
     # 1. Fetch content
     source_content = get_source_content(source_str)
     
-    # 2. Gather existing files structure
+    # 2. Gather existing files structure and folders tree
     existing_concepts = scan_existing_concepts(bundle_root)
+    existing_subfolders = manager.get_existing_subfolders(bundle_root)
     
     # 3. Call API or fallback
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -206,7 +207,7 @@ Please perform the following operations:
 1. Identify the core, atomic concepts present in the source material.
 2. For each identified concept, determine:
    - A short, clean filename in Spanish (lowercase, e.g. `mecanica_cuantica.md`).
-   - A logical subfolder name in Spanish (e.g. `conceptos`, `metodos`, `arquitectura`). Keep it simple and lowercase.
+   - A target subfolder. CRITICAL: You MUST choose from one of the following existing subfolders in the bundle: {existing_subfolders}. Do NOT invent or output any other subfolder name. If there are no existing subfolders, use '.' as the subfolder.
    - The concept type in Spanish (e.g. `concepto`, `metodologia`, `formula`, `esquema`).
    - A concise, descriptive title in Spanish.
    - A one-sentence description in Spanish.
@@ -220,7 +221,7 @@ JSON Schema:
 {{
   "concepts": [
     {{
-      "subfolder": "string (lowercase folder name, in Spanish)",
+      "subfolder": "string (MUST be one of the existing subfolders: {existing_subfolders})",
       "filename": "string (ends with .md, in Spanish)",
       "type": "string (concept type, in Spanish)",
       "title": "string (Title, in Spanish)",
@@ -256,8 +257,12 @@ JSON Schema:
         if not filename.endswith(".md"):
             filename += ".md"
             
+        # Adapt to existing subfolders
+        subfolder = manager.adapt_subfolder(bundle_root, subfolder)
         target_dir = (bundle_root / subfolder).resolve()
-        target_dir.mkdir(parents=True, exist_ok=True)
+        if not target_dir.is_dir():
+            print(f"Warning: Adapted target directory does not exist: {target_dir}. Skipping concept.", file=sys.stderr)
+            continue
         
         file_path = target_dir / filename
         if file_path.is_file():
